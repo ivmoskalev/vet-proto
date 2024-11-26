@@ -1,101 +1,178 @@
+// src/app/components/AudioRecorder.tsx
+
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { fields } from "../data/fields";
+import "../globals.css"; // Import the CSS file
 
 const AudioRecorder = () => {
-    const [recording, setRecording] = useState(false);
-    const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
-    const [transcription, setTranscription] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
+  const [showData, setShowData] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-    const handleStartRecording = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg;codecs=opus" });
+  const playAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.play();
+    }
+  };
 
-        mediaRecorderRef.current = mediaRecorder;
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunksRef.current.push(event.data);
-        };
+  const handleAudioEnded = () => {
+    // Start recording
+    handleStartRecording();
+  };
 
-        mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunksRef.current, { type: "audio/ogg" });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            setMediaBlobUrl(audioUrl);
-            audioChunksRef.current = [];
-        };
-
-        mediaRecorder.start();
-        setRecording(true);
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.addEventListener("ended", handleAudioEnded);
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.removeEventListener("ended", handleAudioEnded);
+      }
     };
+  }, [currentFieldIndex]);
 
-    const handleStopRecording = () => {
-        if (mediaRecorderRef.current) {
-            mediaRecorderRef.current.stop();
-            setRecording(false);
-        }
-    };
+  const handleStartRecording = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg;codecs=opus" });
 
-    const handleSendAudio = async () => {
-        if (!mediaBlobUrl) return;
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
 
-        setLoading(true);
-        try {
-            const response = await fetch(mediaBlobUrl);
-            const blob = await response.blob();
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/ogg" });
+        audioChunksRef.current = [];
 
-            const formData = new FormData();
-            formData.append("file", blob, "audio.ogg");
+        // Send audio to backend without waiting for the response
+        await handleSendAudio(audioBlob);
+        handleNextField();
+      };
 
-            const res = await fetch("/api/speech/recognize", {
-                method: "POST",
-                body: formData,
-            });
+      mediaRecorder.start();
+      setRecording(true);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to start recording. Please check your microphone permissions.");
+    }
+  };
 
-            if (!res.ok) {
-                throw new Error("Failed to recognize speech");
-            }
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  };
 
-            const data = await res.json();
-            // Display the transcription
-            setTranscription(data.transcription);
-        } catch (error) {
-            console.error(error);
-            setTranscription("Error recognizing speech.");
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleSendAudio = async (audioBlob: Blob) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "audio.ogg");
+      formData.append("id", fields[currentFieldIndex].id.toString());
 
-    return (
-        <div>
-            <p>Status: {recording ? "Recording" : "Idle"}</p>
-            <button onClick={handleStartRecording} disabled={recording}>
-                Start Recording
-            </button>
-            <button onClick={handleStopRecording} disabled={!recording}>
-                Stop Recording
-            </button>
+      const res = await fetch("/api/speech/recognize", {
+        method: "POST",
+        body: formData,
+      });
 
-            {mediaBlobUrl && (
-                <div>
-                    <audio src={mediaBlobUrl} controls />
-                    <button onClick={handleSendAudio} disabled={loading}>
-                        {loading ? "Transcribing..." : "Transcribe Audio"}
-                    </button>
-                </div>
-            )}
+      if (!res.ok) {
+        throw new Error("Failed to send audio for recognition");
+      }
 
-            {transcription && (
-                <div>
-                    <h3>Transcription:</h3>
-                    <p>{transcription}</p>
-                </div>
-            )}
+      // No need to handle response here
+    } catch (error) {
+      console.error(error);
+      setError("Error sending audio.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNextField = () => {
+    if (currentFieldIndex < fields.length - 1) {
+      setCurrentFieldIndex(currentFieldIndex + 1);
+      playAudio();
+    } else {
+      // All fields processed
+      setRecording(false);
+    }
+  };
+
+  const toggleShowData = async () => {
+    setShowData(!showData);
+    if (!showData) {
+      // Fetch transcriptions from backend
+      const res = await fetch("/api/data");
+      if (res.ok) {
+        const data = await res.json();
+        fields.forEach((field) => {
+          field.transcription = data[field.id] || "";
+        });
+      } else {
+        setError("Failed to fetch data");
+      }
+    }
+  };
+
+  const startApplication = () => {
+    playAudio();
+  };
+
+  return (
+    <div className="container">
+      <button onClick={startApplication} className="button">
+        Начать
+      </button>
+      <p className="status">Статус: {recording ? "Запись..." : "Ожидание"}</p>
+
+      <audio
+        ref={audioRef}
+        src={fields[currentFieldIndex].audioUrl}
+        preload="auto"
+      />
+
+      <div className="controls">
+        <button onClick={playAudio} className="button">
+          Повторить сообщение
+        </button>
+        <button onClick={handleStopRecording} disabled={!recording} className="button">
+          Остановить запись
+        </button>
+        <button onClick={handleStartRecording} disabled={recording} className="button">
+          Продолжить запись
+        </button>
+      </div>
+
+      {error && <p className="error">{error}</p>}
+
+      <button onClick={toggleShowData} className="button">
+        {showData ? "Скрыть данные" : "Показать все данные"}
+      </button>
+
+      {showData && (
+        <div className="data">
+          <h3>Распознанные данные:</h3>
+          {fields.map((field) => (
+            <div key={field.id}>
+              <strong>{field.fieldNameRu}:</strong> {field.transcription}
+            </div>
+          ))}
         </div>
-    );
+      )}
+    </div>
+  );
 };
 
 export default AudioRecorder;

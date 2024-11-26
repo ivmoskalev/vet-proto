@@ -1,15 +1,21 @@
 // /app/page.tsx
-import dynamic from 'next/dynamic';
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import LoginPage from './components/LoginPage';
 
-const AudioRecorder = dynamic(() => import('./components/AudioRecorder'), {
-  ssr: false,
-});
+const Home = ({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) => {
+  const router = useRouter();
 
-export default function Home() {
-  return (
-    <div>
-      <h1>Speech Recognition App</h1>
-      <AudioRecorder />
-    </div>
-  );
-}
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // User is authenticated, redirect to /main
+      router.push('/main');
+    }
+  }, [router]);
+
+  return <LoginPage searchParams={searchParams} />;
+};
+
+export default Home;

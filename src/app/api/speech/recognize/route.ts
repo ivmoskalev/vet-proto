@@ -4,6 +4,9 @@ import axios from 'axios';
 import https from 'https';
 import { v4 as uuidv4 } from 'uuid';
 import FormData from 'form-data';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export const runtime = 'nodejs';
 
@@ -12,12 +15,13 @@ export async function POST(request: Request) {
     // 1. Get the access token
     const accessToken = await getAccessToken();
 
-    // 2. Get the audio file from the request
+    // 2. Get the audio file and field ID from the request
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const id = formData.get('id') as string;
 
-    if (!file) {
-      return NextResponse.json({ message: 'No file uploaded' }, { status: 400 });
+    if (!file || !id) {
+      return NextResponse.json({ message: 'No file or ID provided' }, { status: 400 });
     }
 
     // Convert File to Buffer
@@ -30,14 +34,11 @@ export async function POST(request: Request) {
     // 4. Initiate speech recognition
     const taskId = await startSpeechRecognition(accessToken, requestFileId);
 
-    // 5. Poll for recognition status
-    const responseFileId = await pollRecognitionStatus(accessToken, taskId);
+    // 5. Process transcription asynchronously
+    processTranscription(accessToken, taskId, parseInt(id));
 
-    // 6. Download the transcription
-    const transcription = await downloadTranscription(accessToken, responseFileId);
-
-    // 7. Return the transcription
-    return NextResponse.json({ transcription }, { status: 200 });
+    // 6. Return immediately without waiting
+    return NextResponse.json({ message: 'Audio received, processing started' }, { status: 200 });
   } catch (error: any) {
     console.error('Error in speech recognition:', error);
     return NextResponse.json(
@@ -128,6 +129,26 @@ async function startSpeechRecognition(accessToken: string, requestFileId: string
   });
 
   return response.data.result.id;
+}
+
+async function processTranscription(accessToken: string, taskId: string, fieldId: number) {
+  try {
+    // 5. Poll for recognition status
+    const responseFileId = await pollRecognitionStatus(accessToken, taskId);
+
+    // 6. Download the transcription
+    const transcription = await downloadTranscription(accessToken, responseFileId);
+
+    // 7. Save the transcription to the database
+    await prisma.transcription.create({
+      data: {
+        fieldId,
+        transcription,
+      },
+    });
+  } catch (error) {
+    console.error('Error processing transcription:', error);
+  }
 }
 
 async function pollRecognitionStatus(accessToken: string, taskId: string): Promise<string> {

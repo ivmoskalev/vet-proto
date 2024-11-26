@@ -3,7 +3,7 @@ import axios from 'axios';
 import https from 'https';
 import { v4 as uuidv4 } from 'uuid';
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const accessTokenUrl = process.env.URL_ACCESS_TOKEN!;
     const credentials = process.env.CLIENT_SECRET!;

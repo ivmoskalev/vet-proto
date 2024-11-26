@@ -1,0 +1,16 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Transcription {
+  id            Int    @id @default(autoincrement())
+  fieldId       Int
+  transcription String
+}

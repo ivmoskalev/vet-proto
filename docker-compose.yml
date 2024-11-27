@@ -14,6 +14,7 @@ services:
       URL_REST: ${URL_REST}
       CLIENT_SECRET: ${CLIENT_SECRET}
       SCOPE: ${SCOPE}
+      PORT: ${PORT}
     expose:
       - "4000"
     networks:

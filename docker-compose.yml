@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vet-proto-app
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_USERNAME: ${AUTH_USERNAME}
+      AUTH_PASSWORD: ${AUTH_PASSWORD}
+      URL_ACCESS_TOKEN: ${URL_ACCESS_TOKEN}
+      URL_REST: ${URL_REST}
+      CLIENT_SECRET: ${CLIENT_SECRET}
+      SCOPE: ${SCOPE}
+    expose:
+      - "4000"
+    networks:
+      - vet_proto_network
+
+networks:
+  vet_proto_network:
+    external: true

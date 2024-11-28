@@ -141,7 +141,7 @@ const AudioRecorder = () => {
 
       <audio
         ref={audioRef}
-        src={fields[currentFieldIndex].audioUrl}
+        src={basePath + fields[currentFieldIndex].audioUrl}
         preload="auto"
       />
 

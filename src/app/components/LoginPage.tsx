@@ -19,7 +19,7 @@ const LoginPage = ({ searchParams }: LoginPageProps) => {
         // If user is already authenticated, redirect to /main
         const token = localStorage.getItem("token");
         if (token) {
-            router.push(`${basePath}/main`);
+            router.push("/main");
         }
     }, [router]);
 
@@ -51,7 +51,7 @@ const LoginPage = ({ searchParams }: LoginPageProps) => {
 
                 // Redirect to the original page or /main
                 const redirectPath = (searchParams.redirect as string) || "/main";
-                router.push(basePath + redirectPath);
+                router.push(redirectPath);
             }
         } catch (error) {
             console.error("Login error:", error);

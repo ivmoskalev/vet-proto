@@ -6,6 +6,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { fields } from "../data/fields";
 import "../globals.css"; // Import the CSS file
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const AudioRecorder = () => {
   const [recording, setRecording] = useState(false);
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
@@ -82,7 +84,7 @@ const AudioRecorder = () => {
       formData.append("file", audioBlob, "audio.ogg");
       formData.append("id", fields[currentFieldIndex].id.toString());
 
-      const res = await fetch("/api/speech/recognize", {
+      const res = await fetch(`${basePath}/api/speech/recognize`, {
         method: "POST",
         body: formData,
       });
@@ -114,7 +116,7 @@ const AudioRecorder = () => {
     setShowData(!showData);
     if (!showData) {
       // Fetch transcriptions from backend
-      const res = await fetch("/api/data");
+      const res = await fetch(`${basePath}/api/data`);
       if (res.ok) {
         const data = await res.json();
         fields.forEach((field) => {

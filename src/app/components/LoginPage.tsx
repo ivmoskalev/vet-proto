@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 type LoginPageProps = {
     searchParams: { [key: string]: string | string[] | undefined };
 };
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const LoginPage = ({ searchParams }: LoginPageProps) => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -16,7 +19,7 @@ const LoginPage = ({ searchParams }: LoginPageProps) => {
         // If user is already authenticated, redirect to /main
         const token = localStorage.getItem("token");
         if (token) {
-            router.push("/main");
+            router.push(`${basePath}/main`);
         }
     }, [router]);
 
@@ -25,7 +28,7 @@ const LoginPage = ({ searchParams }: LoginPageProps) => {
         setError("");
 
         try {
-            const response = await fetch("/api/login", {
+            const response = await fetch(`${basePath}/api/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -48,7 +51,7 @@ const LoginPage = ({ searchParams }: LoginPageProps) => {
 
                 // Redirect to the original page or /main
                 const redirectPath = (searchParams.redirect as string) || "/main";
-                router.push(redirectPath);
+                router.push(basePath + redirectPath);
             }
         } catch (error) {
             console.error("Login error:", error);

@@ -39,7 +39,7 @@ COPY --from=builder /app/prisma ./prisma
 RUN npm ci --only=production
 
 # Expose port
-EXPOSE 3000
+EXPOSE 4000
 
 # Set environment variable to indicate production
 ENV NODE_ENV production

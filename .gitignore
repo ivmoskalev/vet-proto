@@ -35,3 +35,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cursor
+.cursorrules
+.cursorignore
+prd.txt
+techStack.txt
+APIDoc.txt
+flowFunc.txt

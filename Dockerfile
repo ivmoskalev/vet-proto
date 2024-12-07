@@ -41,6 +41,9 @@ COPY --from=builder /app/prisma ./prisma
 # Install production dependencies
 RUN npm ci --only=production
 
+# Run Prisma migrations
+RUN npx prisma migrate deploy
+
 # Expose port
 EXPOSE 4000
 

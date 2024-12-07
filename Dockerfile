@@ -41,6 +41,15 @@ COPY --from=builder /app/prisma ./prisma
 # Install production dependencies
 RUN npm ci --only=production
 
+# Add this line at the top of your Dockerfile
+ARG DATABASE_URL
+
+# Update the Prisma datasource in the schema to use the build argument
+RUN echo "DATABASE_URL=${DATABASE_URL}" > .env
+
+# Copy the .env file
+COPY .env ./
+
 # Run Prisma migrations
 RUN npx prisma migrate deploy
 

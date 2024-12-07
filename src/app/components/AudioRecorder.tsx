@@ -45,7 +45,7 @@ const AudioRecorder = () => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg;codecs=opus" });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
 
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.ondataavailable = (event) => {
@@ -53,10 +53,10 @@ const AudioRecorder = () => {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/ogg" });
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         audioChunksRef.current = [];
 
-        // Send audio to backend without waiting for the response
+        // Convert audioBlob for Chrome
         await handleSendAudio(audioBlob);
         handleNextField();
       };
@@ -73,6 +73,10 @@ const AudioRecorder = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       setRecording(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
     }
   };
 
@@ -81,7 +85,7 @@ const AudioRecorder = () => {
     setError(null);
     try {
       const formData = new FormData();
-      formData.append("file", audioBlob, "audio.ogg");
+      formData.append("file", audioBlob, "audio.webm");
       formData.append("id", fields[currentFieldIndex].id.toString());
 
       const res = await fetch(`${basePath}/api/speech/recognize`, {
@@ -131,6 +135,7 @@ const AudioRecorder = () => {
   const startApplication = () => {
     playAudio();
   };
+
 
   return (
     <div className="container">

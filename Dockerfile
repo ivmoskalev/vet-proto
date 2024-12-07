@@ -25,6 +25,9 @@ RUN npm run build
 # Stage 2: Run the application
 FROM node:18-alpine
 
+# Install ffmpeg
+RUN apk add --no-cache ffmpeg
+
 # Set working directory
 WORKDIR /app
 

@@ -13,4 +13,6 @@ model Transcription {
   id            Int    @id @default(autoincrement())
   fieldId       Int
   transcription String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

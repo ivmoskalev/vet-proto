@@ -5,6 +5,12 @@ import https from 'https';
 import { v4 as uuidv4 } from 'uuid';
 import FormData from 'form-data';
 import { PrismaClient } from '@prisma/client';
+import ffmpeg from 'fluent-ffmpeg';
+import { Readable } from 'stream';
+import { promisify } from 'util';
+import { writeFile, unlink } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 const prisma = new PrismaClient();
 
@@ -25,11 +31,12 @@ export async function POST(request: Request) {
     }
 
     // Convert File to Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const convertedBuffer = await convertWebmToMp3(file);
+    // const arrayBuffer = await file.arrayBuffer();
+    // const buffer = Buffer.from(arrayBuffer);
 
     // 3. Upload the audio file
-    const requestFileId = await uploadAudioFile(accessToken, buffer);
+    const requestFileId = await uploadAudioFile(accessToken, convertedBuffer);
 
     // 4. Initiate speech recognition
     const taskId = await startSpeechRecognition(accessToken, requestFileId);
@@ -45,6 +52,54 @@ export async function POST(request: Request) {
       { message: 'Speech recognition failed', error: error.message },
       { status: 500 }
     );
+  }
+}
+
+async function convertWebmToMp3(file: File): Promise<Buffer> {
+  // Create temporary file paths
+  const inputPath = join(tmpdir(), `input-${Date.now()}.webm`);
+  const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
+
+  try {
+    // Write input file
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    await writeFile(inputPath, buffer);
+
+    // Convert using ffmpeg
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(inputPath)
+        .toFormat('mp3')
+        .outputOptions([
+          '-acodec libmp3lame',
+          '-ab 128k', // Bitrate
+          '-ar 44100', // Sample rate
+          '-ac 2', // Number of audio channels (stereo)
+        ])
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .save(outputPath);
+    });
+
+    // Read the converted file
+    const convertedBuffer = await require('fs/promises').readFile(outputPath);
+
+    // Cleanup temporary files
+    await Promise.all([
+      unlink(inputPath),
+      unlink(outputPath),
+    ]);
+
+    return convertedBuffer;
+  } catch (error) {
+    // Cleanup in case of error
+    try {
+      await Promise.all([
+        unlink(inputPath),
+        unlink(outputPath),
+      ].map(p => p.catch(() => {})));
+    } catch {}
+    throw error;
   }
 }
 
@@ -82,7 +137,7 @@ async function uploadAudioFile(accessToken: string, buffer: Buffer): Promise<str
   const uploadUrl = `${process.env.URL_REST}/data:upload`;
 
   const formData = new FormData();
-  formData.append('file', buffer, 'audio.ogg');
+  formData.append('file', buffer, 'audio.mp3');
 
   const headers = {
     Authorization: `Bearer ${accessToken}`,
@@ -107,7 +162,7 @@ async function startSpeechRecognition(accessToken: string, requestFileId: string
   const data = {
     options: {
       // model: 'general',
-      audio_encoding: 'OPUS', // Update as per your audio encoding
+      audio_encoding: 'MP3', // Update as per your audio encoding
       // sample_rate: 16000, // Update as per your recording settings
       channels_count: 1,
     },
@@ -115,7 +170,7 @@ async function startSpeechRecognition(accessToken: string, requestFileId: string
   };
 
   const headers = {
-    'Content-Type': 'application/json',
+    'Content-Type': 'audio/mpeg',
     Authorization: `Bearer ${accessToken}`,
   };
 
